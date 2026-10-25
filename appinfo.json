@@ -1,0 +1,12 @@
+{
+  "id": "com.home.go2rtcviewer",
+  "version": "1.0.0",
+  "vendor": "LocalDev",
+  "type": "web",
+  "main": "index.html",
+  "title": "go2rtc Viewer",
+  "icon": "icon.png",
+  "requiredPermissions": [
+    "INTERNET"
+  ]
+}

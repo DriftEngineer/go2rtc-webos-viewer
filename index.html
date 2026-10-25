@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>go2rtc webOS Viewer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #0f0f0f;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 15px 30px;
+      background: #1a1a1a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    #status {
+      font-size: 14px;
+      color: #888;
+    }
+
+    /* Configuration Screen */
+    #config-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0f0f0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+
+    .config-box {
+      background: #1a1a1a;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 450px;
+      text-align: center;
+    }
+
+    .config-box h2 {
+      font-size: 22px;
+      font-weight: 500;
+    }
+
+    .config-box input {
+      background: #2a2a2a;
+      border: 2px solid #444;
+      color: white;
+      padding: 12px 15px;
+      font-size: 18px;
+      border-radius: 6px;
+      outline: none;
+      text-align: center;
+    }
+
+    .config-box input:focus {
+      border-color: #007acc;
+    }
+
+    .config-box button {
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .config-box button:hover {
+      background: #005999;
+    }
+
+    #grid-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 15px;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .camera-tile {
+      background: #181818;
+      border-radius: 12px;
+      border: 3px solid transparent;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .camera-tile.focused {
+      border-color: #007acc;
+      transform: scale(1.02);
+      box-shadow: 0 0 20px rgba(0, 122, 204, 0.6);
+      z-index: 5;
+    }
+
+    .tile-header {
+      background: rgba(0,0,0,0.8);
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 3;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .back-btn {
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .back-btn:hover {
+      background: #005999;
+    }
+
+    .tile-content {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tile-content img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .tile-content iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* Fullscreen Mode */
+    .camera-tile.fullscreen {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 99999 !important;
+      border-radius: 0 !important;
+      border: none !important;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .camera-tile.fullscreen .back-btn {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- IP Configuration Screen -->
+  <div id="config-screen">
+    <div class="config-box">
+      <h2>go2rtc Configuration</h2>
+      <p style="font-size: 14px; color: #aaa;">Enter your go2rtc server IP address and port</p>
+      <input type="text" id="server-url-input" value="http://192.168.1.238:1984">
+      <button id="save-config-btn" onclick="saveConfig()">Connect</button>
+    </div>
+  </div>
+
+  <header>
+    <h1>Camera Viewer (go2rtc)</h1>
+    <div id="status">Waiting for configuration...</div>
+  </header>
+
+  <div id="grid-container"></div>
+
+  <script>
+    let SERVER_BASE = localStorage.getItem('go2rtc_server') || 'http://192.168.1.238:1984';
+
+    let streams = [];
+    let currentIndex = 0;
+    let isFullscreen = false;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (localStorage.getItem('go2rtc_server')) {
+        document.getElementById('server-url-input').value = SERVER_BASE;
+        document.getElementById('config-screen').style.display = 'none';
+        init();
+      } else {
+        document.getElementById('server-url-input').focus();
+      }
+    });
+
+    function saveConfig() {
+      const inputVal = document.getElementById('server-url-input').value.trim();
+      if (!inputVal) return;
+
+      SERVER_BASE = inputVal.replace(/\/$/, '');
+      localStorage.setItem('go2rtc_server', SERVER_BASE);
+
+      document.getElementById('config-screen').style.display = 'none';
+      init();
+    }
+
+    async function init() {
+      const statusEl = document.getElementById('status');
+      statusEl.innerText = 'Connecting to server...';
+
+      try {
+        const response = await fetch(`${SERVER_BASE}/api/streams`);
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+
+        streams = normalizeStreams(data);
+
+        if (streams.length === 0) {
+          statusEl.innerText = 'No streams configured';
+          return;
+        }
+
+        statusEl.innerText = `Detected streams: ${streams.length}`;
+        renderGrid();
+        setActiveTile(0);
+
+      } catch (err) {
+        console.error('Connection error with go2rtc:', err);
+        statusEl.innerText = 'Connection error. Check IP address.';
+        document.getElementById('config-screen').style.display = 'flex';
+      }
+    }
+
+    function normalizeStreams(data) {
+      const out = [];
+      if (!data) return out;
+
+      Object.keys(data).forEach((key) => {
+        if (key !== 'total' && key !== 'servers' && data[key]) {
+          const item = data[key];
+          const name = (typeof item === 'object' && item.name) ? item.name : key;
+          out.push({ name: name, ...((typeof item === 'object') ? item : {}) });
+        }
+      });
+
+      return out;
+    }
+
+    function renderGrid() {
+      const container = document.getElementById('grid-container');
+      container.innerHTML = '';
+
+      streams.forEach((stream, index) => {
+        const tile = document.createElement('div');
+        tile.className = 'camera-tile';
+        tile.dataset.index = index;
+        tile.dataset.stream = stream.name;
+
+        const header = document.createElement('div');
+        header.className = 'tile-header';
+
+        const titleSpan = document.createElement('span');
+        titleSpan.innerText = stream.name;
+        header.appendChild(titleSpan);
+
+        const backBtn = document.createElement('button');
+        backBtn.className = 'back-btn';
+        backBtn.innerText = '← Back to Grid';
+        backBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleFullscreen();
+        };
+        header.appendChild(backBtn);
+
+        tile.appendChild(header);
+
+        const content = document.createElement('div');
+        content.className = 'tile-content';
+        tile.appendChild(content);
+
+        container.appendChild(tile);
+      });
+    }
+
+    function setActiveTile(newIndex) {
+      if (streams.length === 0 || isFullscreen) return;
+
+      currentIndex = (newIndex + streams.length) % streams.length;
+      const tiles = document.querySelectorAll('.camera-tile');
+
+      tiles.forEach((tile, idx) => {
+        const content = tile.querySelector('.tile-content');
+        const streamName = tile.dataset.stream;
+
+        if (idx === currentIndex) {
+          tile.classList.add('focused');
+
+          if (!content.querySelector('iframe')) {
+            content.innerHTML = '';
+            const iframe = document.createElement('iframe');
+            iframe.src = `${SERVER_BASE}/stream.html?src=${encodeURIComponent(streamName)}&mode=mse`;
+            content.appendChild(iframe);
+          }
+        } else {
+          tile.classList.remove('focused');
+          content.innerHTML = `<img src="${SERVER_BASE}/api/frame.jpeg?src=${encodeURIComponent(streamName)}&t=${Date.now()}" alt="${streamName}">`;
+        }
+      });
+    }
+
+    function toggleFullscreen() {
+      const tiles = document.querySelectorAll('.camera-tile');
+      const activeTile = tiles[currentIndex];
+
+      if (!activeTile) return;
+
+      if (!isFullscreen) {
+        activeTile.classList.add('fullscreen');
+        const content = activeTile.querySelector('.tile-content');
+        const streamName = activeTile.dataset.stream;
+        if (!content.querySelector('iframe')) {
+          content.innerHTML = '';
+          const iframe = document.createElement('iframe');
+          iframe.src = `${SERVER_BASE}/stream.html?src=${encodeURIComponent(streamName)}&mode=mse`;
+          content.appendChild(iframe);
+        }
+        isFullscreen = true;
+      } else {
+        activeTile.classList.remove('fullscreen');
+        isFullscreen = false;
+      }
+    }
+
+    // Remote control navigation in grid view
+    window.addEventListener('keydown', (e) => {
+      if (document.getElementById('config-screen').style.display !== 'none') {
+        if (e.keyCode === 13) {
+          saveConfig();
+        }
+        return;
+      }
+
+      const columns = Math.floor(document.getElementById('grid-container').clientWidth / 400) || 1;
+
+      if (isFullscreen) return;
+
+      switch (e.keyCode) {
+        case 37: setActiveTile(currentIndex - 1); e.preventDefault(); break;
+        case 39: setActiveTile(currentIndex + 1); e.preventDefault(); break;
+        case 38: setActiveTile(currentIndex - columns); e.preventDefault(); break;
+        case 40: setActiveTile(currentIndex + columns); e.preventDefault(); break;
+        case 13: toggleFullscreen(); e.preventDefault(); break;
+      }
+    });
+  </script>
+</body>
+</html>
