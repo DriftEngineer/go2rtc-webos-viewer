@@ -32,4 +32,4 @@ Use the official webOS CLI (`webos-cli`) to package and install the application 
 ares-package .
 
 # Install onto your TV (replace with your target name/device)
-ares-install com.domain.go2rtc-viewer_1.0.0_all.ipk
+ares-install com.domain.go2rtc-viewer_1.0.0.ipk
