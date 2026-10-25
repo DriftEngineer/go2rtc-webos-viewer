@@ -1,8 +1,11 @@
+
 # go2rtc webOS Viewer
 
 A lightweight, native webOS application (`.ipk`) designed for LG OLED TVs (tested on LG C4) to stream and monitor RTSP/ONVIF security cameras via [go2rtc](https://github.com/AlexxIT/go2rtc) using a TV remote control.
 
 ---
+
+<img width="1680" height="983" alt="go2rtcviewer" src="https://github.com/user-attachments/assets/0a2a7a15-f77f-49c9-87cd-40e7f217b6a4" />
 
 ## ✨ Features
 
